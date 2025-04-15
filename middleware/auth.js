@@ -20,7 +20,7 @@ exports.protect = async (req, res, next) => {
 
         console.log(decoded);
 
-        req.user = await User.findById(decoded.id);
+        req.user = await User.findById(decoded.id); // Here req.user.id is set
 
         next();
         

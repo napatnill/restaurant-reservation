@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const Restaurant = require("../models/Restaurant");
+const moment = require("moment-timezone");
 
 // @desc    Get all reservations
 // @route   GET /api/v1/reservations
@@ -86,6 +87,44 @@ exports.addReservation = async (req, res, next) => {
             return res.status(400).json({success: false, message: `The user with ID ${req.user.id} has already made 3 reservations (3 tables)`})
         }
 
+        // Validate that reservationDate must be in the future and within restaurant open-close time
+        const reservationDateUtc = new Date(req.body.reservationDate);
+        const reservationDateThai = moment(reservationDateUtc).tz("Asia/Bangkok");
+
+        const nowThai = moment().tz("Asia/Bangkok");
+
+        // Check: reservation must be in the future
+        if (reservationDateThai.isBefore(nowThai)) {
+            return res.status(400).json({
+                success: false,
+                message: "Reservation time must be in the future"
+            });
+        }
+
+        // Extract reservation time as HH:mm
+        const reservationTime = reservationDateThai.format("HH:mm");
+        
+        const openTime = restaurant.openTime;
+        const closeTime = restaurant.closeTime;
+
+        // Time range check
+        let isInTimeRange = false; // Normal range: e.g., 10:00 to 22:00
+
+        if (openTime < closeTime) {
+            isInTimeRange = (reservationTime >= openTime) && (reservationTime < closeTime);
+        } else {
+            // Overnight range: e.g., 20:00 to 02:00 (openTime > closeTime)
+            isInTimeRange = (reservationTime >= openTime) || (reservationTime < closeTime);
+        }
+
+        if (!isInTimeRange) {
+            return res.status(400).json({
+                success: false,
+                message: `Reservation time (${reservationTime}) must be within restaurant opening hours (${openTime} - ${closeTime})`
+            });
+        }
+
+        // Proceed to create
         const reservation = await Reservation.create(req.body);
         res.status(200).json({success: true, data: reservation});
         
@@ -110,6 +149,50 @@ exports.updateReservation = async (req, res, next) => {
             return res.status(401).json({success: false, message: `User ${req.user.id} is not authorized to update this reservation`})
         }
 
+        // Only validate reservationDate if it’s provided in update payload
+        if (req.body.reservationDate) {
+            const reservationDateUtc = new Date(req.body.reservationDate);
+            const reservationDateThai = moment(reservationDateUtc).tz("Asia/Bangkok");
+            const nowThai = moment().tz("Asia/Bangkok");
+
+            // Validate reservation date is in the future
+            if (reservationDateThai.isBefore(nowThai)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Reservation time must be in the future"
+                });
+            }
+
+            // Load restaurant info for time range validation
+            const restaurantId = req.body.restaurant || reservation.restaurant;
+            const restaurant = await Restaurant.findById(restaurantId);
+            if (!restaurant) {
+                return res.status(404).json({
+                    success: false,
+                    message: `No restaurant with the id of ${restaurantId}`
+                });
+            }
+
+            const reservationTime = reservationDateThai.format("HH:mm");
+            const openTime = restaurant.openTime;
+            const closeTime = restaurant.closeTime;
+
+            let isInTimeRange = false;
+            if (openTime < closeTime) {
+                isInTimeRange = reservationTime >= openTime && reservationTime < closeTime;
+            } else {
+                isInTimeRange = reservationTime >= openTime || reservationTime < closeTime;
+            }
+
+            if (!isInTimeRange) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Reservation time (${reservationTime}) must be within restaurant opening hours (${openTime} - ${closeTime})`
+                });
+            }
+        }
+
+        // Proceed to update
         reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, {new: true, runValidators: true});
         res.status(200).json({success: true, data: reservation});
     } catch (error) {
