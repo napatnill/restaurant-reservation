@@ -87,19 +87,9 @@ exports.addReservation = async (req, res, next) => {
             return res.status(400).json({success: false, message: `The user with ID ${req.user.id} has already made 3 reservations (3 tables)`})
         }
 
-        // Validate that reservationDate must be in the future and within restaurant open-close time
+        // Validate that reservationDate is within restaurant open-close time
         const reservationDateUtc = new Date(req.body.reservationDate);
         const reservationDateThai = moment(reservationDateUtc).tz("Asia/Bangkok");
-
-        const nowThai = moment().tz("Asia/Bangkok");
-
-        // Check: reservation must be in the future
-        if (reservationDateThai.isBefore(nowThai)) {
-            return res.status(400).json({
-                success: false,
-                message: "Reservation time must be in the future"
-            });
-        }
 
         // Extract reservation time as HH:mm
         const reservationTime = reservationDateThai.format("HH:mm");
@@ -153,15 +143,6 @@ exports.updateReservation = async (req, res, next) => {
         if (req.body.reservationDate) {
             const reservationDateUtc = new Date(req.body.reservationDate);
             const reservationDateThai = moment(reservationDateUtc).tz("Asia/Bangkok");
-            const nowThai = moment().tz("Asia/Bangkok");
-
-            // Validate reservation date is in the future
-            if (reservationDateThai.isBefore(nowThai)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Reservation time must be in the future"
-                });
-            }
 
             // Load restaurant info for time range validation
             const restaurantId = req.body.restaurant || reservation.restaurant;
