@@ -109,3 +109,38 @@ exports.getMe = async (req, res, next) => {
     
     return res.status(200).json({success: true, data: user});
 }
+
+
+//@desc     Update current logged-in user's profile (name, tel, email, password)
+//@route    PUT /api/v1/auth/me
+//@access   Private
+exports.updateMe = async (req, res) => {
+    const fieldsToUpdate = {};
+
+    // check field that has to update and put the updated value from req.body to object "fieldsToUpdate"
+    const allowedFields = ["name", "tel", "email", "password"];
+    for (const field of allowedFields) {
+        if (req.body[field]) {
+            fieldsToUpdate[field] = req.body[field];
+        }
+    }
+
+    try {
+        // If password is being updated, hash it manually before update
+        if (fieldsToUpdate.password) {
+            const bcrypt = require("bcryptjs");
+            const salt = await bcrypt.genSalt(10);
+            fieldsToUpdate.password = await bcrypt.hash(fieldsToUpdate.password, salt);
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+            new: true,
+            runValidators: true
+        });
+
+        res.status(200).json({ success: true, data: updatedUser });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ success: false, message: "Cannot update user profile" });
+    }
+};
