@@ -21,7 +21,6 @@ exports.getRestaurants = async (req, res, next) => {
     // Apply $regex for partial search on specific fields
     const textFields = ["name", "address", "district", "province"];
     textFields.forEach(field => {
-        // If the field is a plain string, use regex
         if (reqQuery[field] && typeof reqQuery[field] === "string") {
             reqQuery[field] = { $regex: reqQuery[field], $options: "i" };
         }
