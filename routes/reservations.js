@@ -4,6 +4,10 @@ const { protect, authorize } = require("../middleware/auth");
 
 const router = express.Router({mergeParams: true});
 
+// re-route into other resource routers
+const reviewRouter = require("./reviews");
+router.use("/:reservationId/reviews", reviewRouter);
+
 // ** Define routes explicitly **
 router.get("/", protect, getReservations);
 router.get("/:id",protect, getReservation);

@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const Restaurant = require("../models/Restaurant");
+const Review = require("../models/Review");
 const moment = require("moment-timezone");
 
 // @desc    Get all reservations
@@ -7,24 +8,32 @@ const moment = require("moment-timezone");
 // @access  private
 exports.getReservations = async (req, res, next) => {
     let query;
+
+    const restaurantPopulate = {
+        path: "restaurant",
+        select: "name address province tel openTime closeTime"
+    };
+
+    const reviewPopulate = {
+        path: "review",
+        select: "rating comment createdAt"
+    };
+
     // general users can see only their reservations!
     if (req.user.role !== "admin") {
-        query = Reservation.find({user: req.user.id}).populate({
-            path: "restaurant",
-            select: "name address province tel openTime closeTime"
-        });
+        query = Reservation.find({user: req.user.id})
+            .populate(restaurantPopulate)
+            .populate(reviewPopulate);
     } else { // if you are an admin, you can see all reservations!
         if (req.params.restaurantId) {
             console.log(req.params.restaurantId);
-            query = Reservation.find({restaurant: req.params.restaurantId}).populate({
-                path: "restaurant",
-                select: "name address province tel openTime closeTime"
-            });
+            query = Reservation.find({restaurant: req.params.restaurantId})
+                .populate(restaurantPopulate)
+                .populate(reviewPopulate);
         } else {
-            query = Reservation.find().populate({
-                path: "restaurant",
-                select: "name address province tel openTime closeTime"
-            });
+            query = Reservation.find()
+                .populate(restaurantPopulate)
+                .populate(reviewPopulate);
         }
     }
 
@@ -47,10 +56,15 @@ exports.getReservations = async (req, res, next) => {
 // @access  private
 exports.getReservation = async (req, res, next) => {
     try {
-        const reservation = await Reservation.findById(req.params.id).populate({
-            path: "restaurant",
-            select: "name address province tel openTime closeTime"
-        });
+        const reservation = await Reservation.findById(req.params.id)
+            .populate({
+                path: "restaurant",
+                select: "name address province tel openTime closeTime"
+            })
+            .populate({
+                path: "review",
+                select: "rating comment createdAt"
+            });    
 
         if (!reservation) {
             return res.status(404).json({success: false, message: `No reservation with the id of ${req.params.id}`});
@@ -197,6 +211,7 @@ exports.deleteReservation = async (req, res, next) => {
             return res.status(401).json({success: false, message: `User ${req.user.id} is not authorized to upadte this reservation`})
         }
 
+        await Review.deleteOne({reservation: req.params.id});
         await reservation.deleteOne();
         res.status(200).json({success: true, data: {}});
     } catch (error) {
