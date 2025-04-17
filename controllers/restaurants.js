@@ -7,28 +7,28 @@ const Review = require("../models/Review");
 // @access  public
 exports.getRestaurants = async (req, res, next) => {
 
-    let query;
-
-    // Copy req.query
-    const reqQuery = {...req.query};
+    let reqQuery = {...req.query };
 
     // Fields to exclude
     const removeFields = ["select", "sort", "page", "limit"];
-
-    // Loop over remove fields and delete them from reqQuery
     removeFields.forEach( param => delete reqQuery[param] );
-    console.log(reqQuery);
 
-    // *** Search Logic *** //
-    // Create query string
+    // Transform query operators (gt, gte, lt, etc.)
     let queryStr = JSON.stringify(reqQuery);
-
-    // Create operators ($gt, $gte, ...)
     queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
-    // ******************* //
+    reqQuery = JSON.parse(queryStr);
 
-    // Finding resource
-    query = Restaurant.find(JSON.parse(queryStr)).populate("reservations");
+    // Apply $regex for partial search on specific fields
+    const textFields = ["name", "address", "district", "province"];
+    textFields.forEach(field => {
+        // If the field is a plain string, use regex
+        if (reqQuery[field] && typeof reqQuery[field] === "string") {
+            reqQuery[field] = { $regex: reqQuery[field], $options: "i" };
+        }
+    });
+
+    // Build query
+    query = Restaurant.find(reqQuery).populate("reservations");
 
     // Select Fields
     if (req.query.select) {
