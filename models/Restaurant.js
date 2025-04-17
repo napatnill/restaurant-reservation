@@ -32,7 +32,11 @@ const RestaurantSchema = new mongoose.Schema({
     tel: {
         type: String,
         required: [true, "Please add a telephone number"],
-        trim: true
+        trim: true,
+        match: [
+            /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/,
+            "Please add a valid telephone number"
+        ]
     },
     openTime: {
         type: String,
